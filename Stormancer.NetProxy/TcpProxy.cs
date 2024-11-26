@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -165,6 +166,21 @@ namespace NetProxy
             });
         }
 
+        private static unsafe long IndexOf(byte[] haystack, byte[] needle, long startOffset = 0)
+        {
+            fixed (byte* h = haystack) fixed (byte* n = needle)
+            {
+                for (byte* hNext = h + startOffset, hEnd = h + haystack.LongLength + 1 - needle.LongLength, nEnd = n + needle.LongLength; hNext < hEnd; hNext++)
+                    for (byte* hInc = hNext, nInc = n; *nInc == *hInc; hInc++)
+                        if (++nInc == nEnd)
+                            return hNext - h;
+                return -1;
+            }
+        }
+
+        private readonly static byte[] beforeStatement = Encoding.Default.GetBytes("\0\0\0\0\0\0\0\0\0\0\0\u0001\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
+        private readonly static byte[] afterStatement = Encoding.Default.GetBytes("\u0001\u0001\0\0\0\0\0\0\u0001\u0001\0\u0002");
+
         private async Task CopyToAsync(Stream source, Stream destination, int bufferSize = 81920, Direction direction = Direction.Unknown, CancellationToken cancellationToken = default)
         {
             byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
@@ -175,6 +191,28 @@ namespace NetProxy
                     int bytesRead = await source.ReadAsync(new Memory<byte>(buffer), cancellationToken).ConfigureAwait(false);
                     if (bytesRead == 0) break;
                     LastActivity = Environment.TickCount64;
+
+                    if (direction == Direction.Forward)
+                    {
+                        var indexOfBeforeStatement = IndexOf(buffer, beforeStatement);
+
+                        if (indexOfBeforeStatement != -1)
+                        {
+;                           var indexOfStatement = indexOfBeforeStatement + beforeStatement.Length;
+                            var indexOfAfterStatement = IndexOf(buffer, afterStatement);
+
+                            if (indexOfAfterStatement != -1)
+                            {
+                                var statementLength = indexOfAfterStatement - indexOfStatement;
+                                var statement = Encoding.Default.GetString(buffer, (int)indexOfStatement, (int)statementLength);
+
+                                Console.WriteLine(statement);
+                            }
+                        }
+
+
+                    }
+
                     await destination.WriteAsync(new ReadOnlyMemory<byte>(buffer, 0, bytesRead), cancellationToken).ConfigureAwait(false);
 
                     switch (direction)

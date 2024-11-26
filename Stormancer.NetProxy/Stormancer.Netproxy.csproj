@@ -11,6 +11,7 @@
     <Version>0.2</Version>
     <PackageProjectUrl>https://github.com/Stormancer/netproxy</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
